@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import io
-from datetime import datetime
+from datetime import datetime, timedelta
 import sys
 import json
 
@@ -26,7 +26,7 @@ pd.set_option('display.max_columns', None)
 # Page config
 st.set_page_config(
     page_title="Production Scheduler",
-    page_icon="chart_with_upwards_trend",
+    page_icon="📊",
     layout="wide"
 )
 
@@ -62,7 +62,7 @@ with col4:
 all_files_uploaded = all([input_file, table_setting, table_list, order_list])
 
 if all_files_uploaded:
-    st.success("All files uploaded successfully")
+    st.success("✅ All files uploaded successfully")
     
     # Load files into session state
     if not st.session_state.files_loaded:
@@ -93,7 +93,7 @@ if all_files_uploaded:
                     st.session_state.order_list_data[sheet] = pd.read_excel(excel_file, sheet_name=sheet)
                 
                 st.session_state.files_loaded = True
-                st.success("Files loaded successfully!")
+                st.success("✅ Files loaded successfully!")
                 
             except ImportError as e:
                 st.error(f"Missing Python package: {str(e)}")
@@ -125,7 +125,8 @@ if all_files_uploaded and st.session_state.files_loaded:
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        monday = st.selectbox("Monday (1-7)", [1,2,3,4,5,6,7], index=0)
+        monday = st.selectbox("Monday (1-7)", [1,2,3,4,5,6,7], index=0, 
+                             help="1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday, 7=Sunday")
     with col2:
         target_day = st.number_input("Target Days", value=14, min_value=1, max_value=30)
     with col3:
@@ -133,8 +134,41 @@ if all_files_uploaded and st.session_state.files_loaded:
     with col4:
         operation_mode = st.selectbox("Operation Mode", [1, 2], index=1)
     
+    # Display calendar table based on settings
+    st.markdown("### 📅 Calendar Preview")
+    
+    # Calculate dates based on monday selection
+    # Get current date
+    today = datetime.now()
+    
+    # Calculate days until next selected monday (1=Monday, 7=Sunday)
+    current_weekday = today.weekday() + 1  # Monday=1, Sunday=7
+    days_until_monday = (monday - current_weekday) % 7
+    if days_until_monday == 0 and current_weekday != monday:
+        days_until_monday = 7
+    
+    # Start date is the next occurrence of selected monday
+    start_date = today + timedelta(days=days_until_monday)
+    
+    # Generate calendar table
+    calendar_data = []
+    for day in range(1, target_day + 1):
+        current_date = start_date + timedelta(days=day - 1)
+        calendar_data.append({
+            'Day': f'Day {day}',
+            'Date': current_date.strftime('%Y-%m-%d'),
+            'Weekday': current_date.strftime('%A')
+        })
+    
+    calendar_df = pd.DataFrame(calendar_data)
+    
+    # Display in columns for better visibility
+    st.dataframe(calendar_df, use_container_width=True, height=min(400, 35 + len(calendar_df) * 35))
+    
+    st.info(f"ℹ️ Scheduler will run from {start_date.strftime('%Y-%m-%d')} for {target_day} days")
+    
     # Run button
-    if st.button("RUN SCHEDULER", type="primary", use_container_width=True):
+    if st.button("🚀 RUN SCHEDULER", type="primary", use_container_width=True):
         with st.spinner("Running scheduler... Please wait..."):
             try:
                 # =============================================================
@@ -202,11 +236,11 @@ if all_files_uploaded and st.session_state.files_loaded:
                         'TOTAL COGM': np.random.uniform(1000000, 200000000)
                     })
                 
-                # FG Calendar (885 rows with 14 days)
+                # FG Calendar (885 rows with dynamic days based on target_day)
                 fg_calendar_rows = []
                 for fg in fg_types * 177:  # 885 rows
                     row = {'FG': fg}
-                    for day in range(1, 15):
+                    for day in range(1, target_day + 1):
                         row[f'Day {day}'] = np.random.randint(0, 1000)
                     fg_calendar_rows.append(row)
                 
@@ -215,7 +249,7 @@ if all_files_uploaded and st.session_state.files_loaded:
                 table_rows = []
                 for table in table_names[:73]:
                     row = {'Table': table}
-                    for day in range(1, 15):
+                    for day in range(1, target_day + 1):
                         # Convert list to string to avoid pyarrow error
                         items = [[fg_types[i % len(fg_types)], np.random.randint(1, 100)] 
                                 for i in range(np.random.randint(0, 3))]
@@ -226,7 +260,7 @@ if all_files_uploaded and st.session_state.files_loaded:
                 table_load_rows = []
                 for table in table_names[:73]:
                     row = {'Table': table}
-                    for day in range(1, 15):
+                    for day in range(1, target_day + 1):
                         row[f'Day {day}'] = np.random.uniform(0, 1)
                     table_load_rows.append(row)
                 
@@ -234,7 +268,7 @@ if all_files_uploaded and st.session_state.files_loaded:
                 table_time_rows = []
                 for table in table_names[:73]:
                     row = {'Table': table}
-                    for day in range(1, 15):
+                    for day in range(1, target_day + 1):
                         # Convert list to string to avoid pyarrow error
                         times = [[28800 + i*1000, 54000 + i*1000, fg_types[i % len(fg_types)], 
                                  np.random.randint(1, 100)] for i in range(np.random.randint(0, 2))]
@@ -245,7 +279,7 @@ if all_files_uploaded and st.session_state.files_loaded:
                 jig_rows = []
                 for i in range(946):
                     row = {'Jig': f'JIG-{i+1:05d}'}
-                    for day in range(1, 12):
+                    for day in range(1, min(12, target_day + 1)):
                         row[f'Day {day}'] = str([])
                     jig_rows.append(row)
                 
@@ -262,7 +296,7 @@ if all_files_uploaded and st.session_state.files_loaded:
                 stock_part_rows = []
                 for part in parts:
                     row = {'Part': part}
-                    for day in range(1, 15):
+                    for day in range(1, target_day + 1):
                         row[f'Day {day}'] = np.random.randint(0, 20000)
                     stock_part_rows.append(row)
                 
@@ -278,6 +312,14 @@ if all_files_uploaded and st.session_state.files_loaded:
                     'Stock Part': pd.DataFrame(stock_part_rows)
                 }
                 
+                # Store calendar settings
+                st.session_state.calendar_settings = {
+                    'monday': monday,
+                    'target_day': target_day,
+                    'start_date': start_date,
+                    'calendar_df': calendar_df
+                }
+                
                 # Complete
                 status_text.text("Scheduler completed!")
                 progress_bar.progress(100)
@@ -285,12 +327,12 @@ if all_files_uploaded and st.session_state.files_loaded:
                 status_text.empty()
                 progress_bar.empty()
                 
-                st.success("Scheduler completed successfully!")
-                st.info("NOTE: This is simulated data. To use real scheduler, integrate Assembling_Scheduler.py code at line 142")
+                st.success("✅ Scheduler completed successfully!")
+                st.info("ℹ️ NOTE: This is simulated data. To use real scheduler, integrate Assembling_Scheduler.py code at line 142")
                 st.rerun()
                 
             except Exception as e:
-                st.error(f"Error running scheduler: {str(e)}")
+                st.error(f"❌ Error running scheduler: {str(e)}")
                 st.exception(e)
 
 # ============================================================================
@@ -299,6 +341,11 @@ if all_files_uploaded and st.session_state.files_loaded:
 if st.session_state.results is not None:
     st.markdown("---")
     st.header("Step 3: View and Edit Results")
+    
+    # Display calendar info
+    if 'calendar_settings' in st.session_state:
+        settings = st.session_state.calendar_settings
+        st.info(f"📅 Calendar: {settings['target_day']} days starting from {settings['start_date'].strftime('%Y-%m-%d')}")
     
     # Create tabs for each sheet
     sheet_names = list(st.session_state.results.keys())
@@ -321,7 +368,7 @@ if st.session_state.results is not None:
             st.session_state.results[sheet_name] = edited_df
             
             # Show row count
-            st.caption(f"Total rows: {len(edited_df)}")
+            st.caption(f"Total rows: {len(edited_df):,}")
     
     # ============================================================================
     # STEP 4: DOWNLOAD
@@ -343,7 +390,7 @@ if st.session_state.results is not None:
         
         # Download button
         st.download_button(
-            label="Download calendar.xlsx",
+            label="📥 Download calendar.xlsx",
             data=excel_data,
             file_name=f"calendar_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -351,20 +398,19 @@ if st.session_state.results is not None:
             use_container_width=True
         )
         
-        st.info("File will be downloaded with timestamp")
+        st.info("ℹ️ File will be downloaded with timestamp")
 
 else:
     if all_files_uploaded:
-        st.info("Click RUN SCHEDULER button to process files")
+        st.info("👆 Click RUN SCHEDULER button to process files")
     else:
-        st.info("Please upload all 4 files to continue")
+        st.info("📁 Please upload all 4 files to continue")
 
 # Footer
 st.markdown("---")
 st.markdown("""
 <div style='text-align: center; color: #666; padding: 10px;'>
-    <p><strong>Production Scheduler v1.0</strong></p>
+    <p><strong>Production Scheduler v1.1</strong></p>
+    <p><small>Dynamic Calendar Support • Target Days Adjustment</small></p>
 </div>
 """, unsafe_allow_html=True)
-
-
