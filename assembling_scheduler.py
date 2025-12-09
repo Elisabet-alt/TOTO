@@ -134,43 +134,29 @@ if all_files_uploaded and st.session_state.files_loaded:
     with col4:
         operation_mode = st.selectbox("Operation Mode", [1, 2], index=1)
     
-    # Display calendar table based on settings
-    st.markdown("### 📅 Calendar Preview")
-    
-    # Calculate dates based on monday selection
-    # Get current date
-    today = datetime.now()
-    
-    # Calculate days until next selected monday (1=Monday, 7=Sunday)
-    current_weekday = today.weekday() + 1  # Monday=1, Sunday=7
-    days_until_monday = (monday - current_weekday) % 7
-    if days_until_monday == 0 and current_weekday != monday:
-        days_until_monday = 7
-    
-    # Start date is the next occurrence of selected monday
-    start_date = today + timedelta(days=days_until_monday)
-    
-    # Generate calendar table
-    calendar_data = []
-    for day in range(1, target_day + 1):
-        current_date = start_date + timedelta(days=day - 1)
-        calendar_data.append({
-            'Day': f'Day {day}',
-            'Date': current_date.strftime('%Y-%m-%d'),
-            'Weekday': current_date.strftime('%A')
-        })
-    
-    calendar_df = pd.DataFrame(calendar_data)
-    
-    # Display in columns for better visibility
-    st.dataframe(calendar_df, use_container_width=True, height=min(400, 35 + len(calendar_df) * 35))
-    
-    st.info(f"ℹ️ Scheduler will run from {start_date.strftime('%Y-%m-%d')} for {target_day} days")
-    
     # Run button
     if st.button("🚀 RUN SCHEDULER", type="primary", use_container_width=True):
         with st.spinner("Running scheduler... Please wait..."):
             try:
+                # Calculate dates based on monday selection
+                today = datetime.now()
+                current_weekday = today.weekday() + 1  # Monday=1, Sunday=7
+                days_until_monday = (monday - current_weekday) % 7
+                if days_until_monday == 0 and current_weekday != monday:
+                    days_until_monday = 7
+                start_date = today + timedelta(days=days_until_monday)
+                
+                # Generate calendar data (for internal use)
+                calendar_data = []
+                for day in range(1, target_day + 1):
+                    current_date = start_date + timedelta(days=day - 1)
+                    calendar_data.append({
+                        'Day': f'Day {day}',
+                        'Date': current_date.strftime('%Y-%m-%d'),
+                        'Weekday': current_date.strftime('%A')
+                    })
+                calendar_df = pd.DataFrame(calendar_data)
+                
                 # =============================================================
                 # TODO: INTEGRATE ASSEMBLING SCHEDULER HERE
                 # =============================================================
